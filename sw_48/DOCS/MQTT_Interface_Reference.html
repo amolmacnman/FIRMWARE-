@@ -1,0 +1,355 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 15mm 13mm; }
+body { font-family: DocSans; color:#1b2733; font-size:10.5px; line-height:1.45; }
+h1 { font-size:19px; margin:0 0 2px; color:#12385f; }
+.sub { color:#5b6b7b; font-size:10.5px; margin:0 0 12px; }
+h2 { font-size:13px; color:#12385f; border-left:4px solid #4c78b5; padding-left:8px; margin:18px 0 6px; }
+h3 { font-size:11.5px; color:#1b4a78; margin:12px 0 4px; }
+table { border-collapse:collapse; width:100%; margin:5px 0 9px; font-size:9.5px; }
+th,td { border:1px solid #cdd8e3; padding:3px 6px; text-align:left; vertical-align:top; }
+th { background:#eef4fb; color:#12385f; }
+code { background:#f0f3f7; padding:1px 3px; font-size:9.5px; }
+pre { background:#f4f6f9; border:1px solid #dde4ec; border-left:3px solid #4c78b5;
+      padding:6px 8px; font-size:9px; line-height:1.35; white-space:pre-wrap;
+      word-wrap:break-word; margin:4px 0 9px; }
+ol,ul { margin:4px 0 9px 16px; padding:0; }
+li { margin:2px 0; }
+.small { color:#5b6b7b; font-size:9.5px; }
+.warn { background:#fdecea; border-left:4px solid #c0392b; padding:7px 9px; margin:7px 0; }
+.note { background:#fff8e1; border-left:4px solid #c79a2e; padding:7px 9px; margin:7px 0; }
+.ok   { background:#eaf6ec; border-left:4px solid #4a8a4a; padding:7px 9px; margin:7px 0; }
+</style></head><body><h1>Smart Wagon — MQTT Interface Reference</h1><p class="sub">Every uplink and downlink message, with how to send each command and how to verify it landed &middot; gateway firmware 1.2.0 &middot; protocol pv=1</p>
+<h2>1. Connection</h2>
+<p>Every value below is compiled into <code>GATEWAY/src/app_config.h</code> and derived from a
+single constant, <code>WAGON_NUMBER</code>. Change that one define and the client id, both topic
+keys, the BLE isolation group and the per-wagon crypto key all follow.</p>
+<table>
+<tr><th>Setting</th><th>Value</th><th>Source</th></tr>
+<tr><td>Broker</td><td><code>mqtt.macnman.com : 1883</code></td><td><code>MQTT_HOST</code> / <code>MQTT_PORT</code></td></tr>
+<tr><td>Client id</td><td><code>GW-31054312345</code></td><td><code>GW_ID</code> = "GW-" + WAGON_NUMBER</td></tr>
+<tr><td>Username / password</td><td>empty (anonymous)</td><td><code>MQTT_USERNAME</code></td></tr>
+<tr><td>Session</td><td>persistent, <code>clean_session = 0</code></td><td>so downlinks queue while the modem is off</td></tr>
+<tr><td>QoS</td><td>1, both directions</td><td>cloud de-dupes on <code>(gw, seq)</code></td></tr>
+<tr><td>Topic root</td><td><code>smartwagon/v1</code></td><td><code>TOPIC_ROOT</code></td></tr>
+<tr><td>Protocol version</td><td><code>pv = 1</code></td><td><code>PROTO_PV</code></td></tr>
+</table>
+
+<h3>1.1 Topic map</h3>
+<p>Pattern: <code>smartwagon/v1/{wgn}/{gw}/{dir}/{kind}</code>, where <code>{wgn}</code> is the wagon
+number and <code>{gw}</code> is the gateway id.</p>
+<table>
+<tr><th>Direction</th><th>Topic</th><th>Published by</th></tr>
+<tr><td>uplink</td><td><code>smartwagon/v1/31054312345/GW-31054312345/up/hb</code></td><td>gateway - scheduled heartbeat</td></tr>
+<tr><td>uplink</td><td><code>&hellip;/up/alarm</code></td><td>gateway - safety-critical alarms</td></tr>
+<tr><td>uplink</td><td><code>&hellip;/up/event</code></td><td>gateway - state-change events</td></tr>
+<tr><td>uplink</td><td><code>&hellip;/up/resp</code></td><td>gateway - reply to every command</td></tr>
+<tr><td><b>downlink</b></td><td><code>&hellip;/dn/cmd</code></td><td><b>you</b> - the only topic the gateway subscribes to</td></tr>
+</table>
+<p class="small">The gateway subscribes exactly once, in <code>ec200.c</code>:
+<code>AT+QMTSUB=0,1,"&lt;root&gt;/&lt;wgn&gt;/&lt;gw&gt;/dn/cmd",1</code>. There is no wildcard and no
+broadcast topic - each gateway is addressed individually.</p>
+
+<h2>2. THE MOST IMPORTANT THING: when does a command arrive?</h2>
+<div class="warn"><b>The gateway is not always online.</b> Its modem is powered OFF between reports
+to meet the battery budget. Commands are drained only <b>after an uplink</b>
+(<code>drain_commands()</code>, called right after the heartbeat is published). So a command you
+publish now is delivered at the gateway's <b>next scheduled report</b>:
+<ul>
+<li>wagon <b>moving</b>: within <b>10 minutes</b></li>
+<li>wagon <b>parked</b>: within <b>12 hours</b></li>
+</ul>
+This is why the session must be persistent (<code>clean_session=0</code>) and QoS 1 - the broker
+holds the message until the gateway wakes. If you publish with QoS 0, or with a clean session, the
+command is simply lost.</div>
+<p>Nothing is broken if you do not see a <code>resp</code> within seconds. Subscribe to
+<code>up/resp</code> and wait for the next report window.</p>
+
+<h2>3. How to send a downlink</h2>
+<p>Open two terminals. The first watches everything the wagon says; the second sends the command.</p>
+<h3>Terminal 1 - watch all uplinks</h3>
+<pre>mosquitto_sub -h mqtt.macnman.com -p 1883 -v \
+  -t 'smartwagon/v1/31054312345/GW-31054312345/up/#'</pre>
+<h3>Terminal 2 - send the command</h3>
+<pre>mosquitto_pub -h mqtt.macnman.com -p 1883 -q 1 \
+  -t 'smartwagon/v1/31054312345/GW-31054312345/dn/cmd' \
+  -m '{"cmd":"get_config","cid":"c-0001"}'</pre>
+<div class="note"><b><code>cid</code> is yours to choose and you should always set it.</b> It is
+echoed back verbatim in the response, and it is the only way to match a reply to the request you
+sent - responses all arrive on the same topic, possibly out of order, possibly hours later. Use
+something unique per request.</div>
+
+<h2>4. Downlink command reference</h2>
+<p>All 12 commands below are dispatched in <code>handle_command()</code>. Anything else returns
+<code>{"res":"err","ec":"UNSUPPORTED"}</code>.</p>
+
+<h3>4.1 Command summary</h3>
+<table>
+<tr><th>cmd</th><th>Purpose</th><th>Applies</th></tr>
+<tr><td><code>get_config</code></td><td>Read back the whole live config</td><td>immediately</td></tr>
+<tr><td><code>get_status</code></td><td>Force a heartbeat now</td><td>immediately</td></tr>
+<tr><td><code>set_threshold</code></td><td>Gateway impact-g, or a node's threshold</td><td>immediately / <b>queued</b></td></tr>
+<tr><td><code>set_interval</code></td><td>Heartbeat cadence, moving and parked</td><td>next wake</td></tr>
+<tr><td><code>set_gnss</code></td><td>Enable, fix timeout, constellation</td><td>immediately</td></tr>
+<tr><td><code>time_sync</code></td><td>Set the software clock from epoch</td><td>immediately</td></tr>
+<tr><td><code>ota_start</code></td><td>Gateway firmware update</td><td>reboots</td></tr>
+<tr><td><code>ota_status</code></td><td>Poll update progress</td><td>immediately</td></tr>
+<tr><td><code>get_history</code></td><td>Ask for buffered records</td><td>triggers replay</td></tr>
+<tr><td><code>pull_data</code></td><td>On-demand sensor snapshot</td><td>immediately</td></tr>
+<tr><td><code>reboot</code></td><td>Cold restart</td><td>after the resp</td></tr>
+<tr><td><code>provision_node</code></td><td>Map a node to this wagon</td><td><b>rejected</b> - roster is compile-time</td></tr>
+</table>
+
+<h3>4.2 set_threshold - GATEWAY impact threshold</h3>
+<pre>{"cmd":"set_threshold","cid":"c-1001","param":"impact_g","value":4.0}</pre>
+<table>
+<tr><th>Field</th><th>Type</th><th>Accepted range</th></tr>
+<tr><td><code>param</code></td><td>string</td><td>must be <code>"impact_g"</code></td></tr>
+<tr><td><code>value</code></td><td>number (g)</td><td><b>&gt; 0.5 and &le; 16.0</b> - anything else returns BAD_PARAM</td></tr>
+</table>
+<p><b>Response:</b> <code>{"res":"ok","pl":{"applied":true}}</code>. Stored as milli-g in
+<code>g_cfg.impact_mg</code> and written to FRAM. Live on the very next comparison - no reboot.</p>
+<p><b>Verify:</b></p>
+<pre>mosquitto_pub -h mqtt.macnman.com -q 1 \
+  -t 'smartwagon/v1/31054312345/GW-31054312345/dn/cmd' \
+  -m '{"cmd":"get_config","cid":"c-1002"}'</pre>
+<p>The response carries <code>"impact_mg":4000</code>. That read-back is the authoritative check -
+it is printed from the live struct, not from what you sent.</p>
+
+<h3>4.3 set_threshold - SUB-NODE threshold</h3>
+<pre>{"cmd":"set_threshold","cid":"c-1003","node":3,"value":850,"hyst":50}</pre>
+<table>
+<tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>node</code></td><td>int</td><td>node id from the roster (<code>nodes.c</code>), 0..SW_MAX_NODES-1</td></tr>
+<tr><td><code>value</code></td><td>int</td><td><b>in the node's own units</b> - for a bearing that is tenths of &deg;C, so 850 = 85.0 &deg;C</td></tr>
+<tr><td><code>hyst</code></td><td>int</td><td>release deadband, same units. 50 = alarm clears below 80.0 &deg;C</td></tr>
+</table>
+<div class="warn"><b>Always send <code>hyst</code>.</b> If you omit it the gateway sends <b>0</b>,
+and the node applies it - deleting the deadband rather than keeping the old value. A node with zero
+hysteresis chatters in and out of alarm at the trip point, which switches it between 30 s and 1 s
+advertising (~134 &micro;A vs ~1800 &micro;A) and floods the escalation path. Nothing in the response
+warns you.</div>
+<p><b>Response:</b> <code>{"res":"ok","pl":{"applied":false,"state":"queued"}}</code>.</p>
+<div class="note"><b>"queued" is not "applied".</b> The node is only reachable during its own 4 s
+config window, which opens every ~10 minutes. The gateway holds the value and delivers it over BLE
+when the observer next sees that node's window. Total worst case from your publish:
+up to 12 h (gateway uplink) + ~10 min (node window) + one node cycle.</div>
+<p>Two error cases to expect:</p>
+<table>
+<tr><th>ec</th><th>Meaning</th></tr>
+<tr><td><code>NOT_FOUND</code></td><td>The gateway has never heard this node, so it does not know the node type - and the type is authenticated inside the encrypted frame, so the command cannot even be built. Check the node is powered and advertising.</td></tr>
+<tr><td><code>BAD_PARAM</code></td><td><code>node</code> outside 0..SW_MAX_NODES-1, or <code>value</code> missing.</td></tr>
+</table>
+<p><b>Verify (this is the only real confirmation):</b> wait for the next heartbeat and read the
+<code>sens[]</code> entry for that node. The node's own uplink reflects its live threshold - if the
+write had failed authentication, addressing or the replay check, the node would have dropped it
+silently and the reading would still behave on the old value. There is no acknowledgement from the
+node itself; the behaviour of its subsequent alarms is the proof.</p>
+
+<h3>4.4 set_interval</h3>
+<pre>{"cmd":"set_interval","cid":"c-1004","moving_s":600,"idle_s":43200}</pre>
+<table>
+<tr><th>Field</th><th>Accepted range</th><th>Default</th></tr>
+<tr><td><code>moving_s</code></td><td>30 .. 86400 s</td><td>600 (10 min)</td></tr>
+<tr><td><code>idle_s</code></td><td>60 .. 604800 s</td><td>43200 (12 h)</td></tr>
+</table>
+<p>Either or both may be given. If neither is present <b>or</b> both are out of range, nothing is
+saved and you get <code>BAD_PARAM</code> - the gateway only writes FRAM on a real change.
+Takes effect at the next <code>arm_schedule()</code>. <b>Verify with <code>get_config</code></b>
+(<code>run_s</code> / <code>stop_s</code>).</p>
+<div class="note">Shortening <code>idle_s</code> is the fastest way to make a parked wagon
+responsive while you are testing - a 12 h command latency is painful on the bench. Remember to put
+it back.</div>
+
+<h3>4.5 set_gnss</h3>
+<pre>{"cmd":"set_gnss","cid":"c-1005","enable":true,"fix_timeout_s":90,"constellation":"navic_gps"}</pre>
+<table>
+<tr><th>Field</th><th>Values</th></tr>
+<tr><td><code>enable</code></td><td>true / false. False means "report last-known position and skip the fix" - saves the GNSS rail entirely.</td></tr>
+<tr><td><code>fix_timeout_s</code></td><td>10 .. 300 s</td></tr>
+<tr><td><code>constellation</code></td><td><code>auto</code> | <code>navic</code> | <code>gps</code> | <code>navic_gps</code></td></tr>
+</table>
+<p>Pushed to the LC29H immediately via PAIR066/PAIR513 (persisted in the module). Always answers
+<code>ok</code>. <b>Verify with <code>get_config</code></b>: <code>gnss_enable</code>,
+<code>gnss_constel</code> (0 auto / 1 navic / 2 gps / 3 navic_gps), <code>gnss_timeout_s</code>.</p>
+
+<h3>4.6 get_config - the read-back you will use most</h3>
+<pre>{"cmd":"get_config","cid":"c-1006"}</pre>
+<pre>{"res":"ok","pl":{"run_s":600,"stop_s":43200,"impact_mg":4000,
+ "gnss_enable":1,"gnss_constel":3,"gnss_timeout_s":90,"nodes":19,"fw":"1.2.0"}}</pre>
+<p>Printed straight from the live <code>g_cfg</code> struct, so it is the truth about what the
+gateway is running - not a copy of what you asked for.</p>
+
+<h3>4.7 get_status and pull_data</h3>
+<pre>{"cmd":"get_status","cid":"c-1007"}
+{"cmd":"pull_data","cid":"c-1008"}</pre>
+<p>Both force a full heartbeat immediately, which is how you get a fresh <code>sens[]</code> array
+on demand rather than waiting for the schedule. <code>pull_data</code> additionally reports how many
+nodes are provisioned. Use either to confirm a node threshold landed.</p>
+
+<h3>4.8 time_sync</h3>
+<pre>{"cmd":"time_sync","cid":"c-1009","epoch":1718971412}</pre>
+<p>Sets the software clock. <code>epoch</code> must be &gt; 0 or you get BAD_PARAM. Normally
+unnecessary - the clock is disciplined from GNSS UTC - but useful when GNSS has never had a fix and
+buffered records would otherwise carry a meaningless <code>ts</code>.</p>
+
+<h3>4.9 ota_start / ota_status - GATEWAY ONLY</h3>
+<pre>{"cmd":"ota_start","cid":"c-1010","url":"https://host/gw-1.3.0.bin","ver":"1.3.0","size":327680}</pre>
+<p>Downloads over HTTP through the modem straight into the MCUboot secondary slot (never buffered in
+RAM), then reboots to apply. MCUboot verifies the signature; if the new image does not confirm
+itself after a healthy cycle it is <b>reverted automatically</b> on the next reset.</p>
+<pre>{"cmd":"ota_status","cid":"c-1011"}
+  -> {"res":"ok","pl":{"state":"downloading","pct":47,"ver":"1.3.0"}}</pre>
+<p>States: <code>idle</code>, <code>downloading</code>, <code>verify</code>, <code>ready</code>,
+<code>applying</code>, <code>error</code>.</p>
+<div class="warn"><b>Sub-node firmware update does not exist.</b> An <code>ota_start</code> carrying
+a <code>node</code> field is rejected with
+<code>{"res":"err","ec":"UNSUPPORTED","pl":{"info":"node OTA not supported"}}</code>. This is
+deliberate: without the check, a node-targeted update would flash the GATEWAY with node firmware.
+The only thing a node ever accepts over the air is a threshold.</div>
+<p><b>Verify:</b> after the reboot, <code>get_config</code> returns the new <code>fw</code> string.
+If it still shows the old version, MCUboot reverted - the image failed to confirm.</p>
+
+<h3>4.10 get_history</h3>
+<pre>{"cmd":"get_history","cid":"c-1012","from_seq":20800}</pre>
+<p>Returns the <b>count</b> of buffered records, then triggers a replay - the records themselves
+arrive as normal uplinks on their own topics, republished with their <b>original</b>
+<code>seq</code> and <code>ts</code> so cloud de-dup still works. They are not embedded in the
+response: each is up to ~640 B and would overflow the modem's publish buffer.</p>
+<pre>{"res":"ok","pl":{"from_seq":20800,"count":37,"mode":"push",
+ "info":"records replay on reconnect with original seq/ts"}}</pre>
+
+<h3>4.11 reboot</h3>
+<pre>{"cmd":"reboot","cid":"c-1013"}</pre>
+<p>Publishes the response first, waits 500 ms, then cold-restarts - so you always learn it was
+accepted before the gateway disappears.</p>
+
+<h3>4.12 provision_node - rejected by design</h3>
+<pre>{"cmd":"provision_node","cid":"c-1014","node":7,"typ":"bearing"}
+  -> {"res":"err","ec":"UNSUPPORTED","pl":{"info":"roster is compile-time (nodes.c)"}}</pre>
+<p>The roster is a compile-time table because <code>node_id</code> must agree with the
+<code>NODE_ID</code> built into each sub-node's firmware. A runtime remap would let the gateway and
+the node silently disagree about which wheel a reading belongs to.</p>
+
+<h2>5. Response format (up/resp)</h2>
+<pre>{"mt":"resp","pv":1,"seq":20903,"gw":"GW-31054312345","wgn":"31054312345",
+ "ts":1718971500,"loc":{...},"spd":0,"pwr":{...},
+ "d":{"cid":"c-1001","cmd":"set_threshold","res":"ok","ec":null,"pl":{"applied":true}}}</pre>
+<table>
+<tr><th>Field</th><th>Meaning</th></tr>
+<tr><td><code>cid</code></td><td>echoed verbatim from your command - match on this</td></tr>
+<tr><td><code>cmd</code></td><td>echoed command name</td></tr>
+<tr><td><code>res</code></td><td><code>ok</code> | <code>err</code></td></tr>
+<tr><td><code>ec</code></td><td>error code or <code>null</code>: BAD_PARAM, NOT_FOUND, UNSUPPORTED, BUSY</td></tr>
+<tr><td><code>pl</code></td><td>command-specific payload. <code>applied:true</code> = in force now; <code>state:"queued"</code> = accepted but not yet delivered</td></tr>
+</table>
+
+<h2>6. Uplink messages</h2>
+<h3>6.1 Common envelope</h3>
+<p>Every uplink - hb, alarm, event, resp - starts with the same envelope and differs only in
+<code>d</code>.</p>
+<table>
+<tr><th>Field</th><th>Meaning</th></tr>
+<tr><td><code>mt</code></td><td>message type: hb | alarm | event | resp</td></tr>
+<tr><td><code>pv</code></td><td>protocol version, always 1</td></tr>
+<tr><td><code>seq</code></td><td>monotonic per gateway, persisted in FRAM - survives reset so (gw,seq) de-dup keeps working</td></tr>
+<tr><td><code>gw</code> / <code>wgn</code></td><td>gateway id / wagon number</td></tr>
+<tr><td><code>ts</code></td><td>UTC epoch seconds at the moment of capture, <b>not</b> of publication</td></tr>
+<tr><td><code>loc</code></td><td>lat, lon, <code>cep</code> (CEP50 in m, derived from HDOP; <b>99 = no usable fix</b>), <code>sys</code> (constellations actually seen)</td></tr>
+<tr><td><code>spd</code></td><td>speed km/h</td></tr>
+<tr><td><code>pwr</code></td><td>compact power block: src, soc, sol, bkp</td></tr>
+<tr><td><code>d</code></td><td>the type-specific payload</td></tr>
+</table>
+<div class="note">A record replayed from the offline archive keeps its <b>original</b>
+<code>seq</code> and <code>ts</code>. So a burst of old timestamps after a coverage gap is correct
+behaviour, not a fault - order by <code>ts</code>, de-dup on <code>(gw, seq)</code>.</div>
+
+<h3>6.2 Heartbeat (up/hb)</h3>
+<pre>{"mt":"hb","pv":1,"seq":20871,"gw":"GW-31054312345","wgn":"31054312345",
+ "ts":1718971412,"loc":{"lat":18.519900,"lon":73.860120,"cep":4,"sys":["gps"]},
+ "spd":54,"pwr":{"src":"lto","soc":81,"sol":"off","bkp":"ok"},
+ "d":{"mode":"running","mot":{"spd":54,"hdg":271},
+  "env":{"t":31.4,"h":48},
+  "gnss":{"sys":["gps"],"fix":"3d","nsat":11,"hdop":0.8},
+  "sens":[
+    {"node":"NODE-BRG-03","pos":"B1-A1-L","typ":"bearing","val":62,"unit":"C",
+     "t":0,"bat":97,"age":12},
+    {"node":"NODE-DOOR-14","pos":"B1D-L","typ":"door","miss":1}
+  ],
+  "band":{"brg":["G"],"whl":["G"]},
+  "pwr2":{"src":"lto","lto":{"v":7420,"soc":81,"chg":"fast"},
+          "bkp":{"ok":true,"rem":18450}},
+  "gsm":{"cell":"0","rssi":-71},
+  "buf":{"n":0,"old":0,"new":0},"up":146,"fw":"1.2.0"}}</pre>
+<table>
+<tr><th>Field</th><th>Meaning</th></tr>
+<tr><td><code>mode</code></td><td><code>running</code> | <code>stopped</code> - the DEBOUNCED motion state, not a raw sample</td></tr>
+<tr><td><code>sens[]</code></td><td>one entry per <b>provisioned</b> node, always the full roster</td></tr>
+<tr><td><code>sens[].age</code></td><td>seconds since that node's advert was last heard - the freshness of the reading</td></tr>
+<tr><td><code>sens[].miss</code></td><td><b>1 = not heard.</b> The node is reported as missing rather than silently omitted, so a dead node cannot look like a healthy roster</td></tr>
+<tr><td><code>buf.n</code></td><td>records still queued in the NOR archive - non-zero means the wagon has been offline</td></tr>
+<tr><td><code>up</code></td><td>uptime in hours</td></tr>
+</table>
+
+<h3>6.3 Alarm (up/alarm)</h3>
+<pre>{"mt":"alarm", ... ,"d":{"code":"HOT_BEARING","sev":"red","node":"NODE-BRG-03",
+ "pos":"B1-A1-L","val":118,"unit":"C","thr":95,"st":"set","aid":"al-20872","spd":52}}</pre>
+<table>
+<tr><th>Field</th><th>Meaning</th></tr>
+<tr><td><code>code</code></td><td>see the enumeration below</td></tr>
+<tr><td><code>sev</code></td><td><code>yellow</code>/<code>red</code> for band alarms; <code>warn</code>/<code>crit</code> otherwise</td></tr>
+<tr><td><code>node</code></td><td>node serial, or <code>null</code> for a gateway-level alarm</td></tr>
+<tr><td><code>st</code></td><td><code>set</code> on onset, <code>clear</code> on return to normal</td></tr>
+<tr><td><code>aid</code></td><td>alarm instance id - the matching <code>clear</code> reuses it</td></tr>
+<tr><td><code>spd</code></td><td>speed at trigger, preserved so a buffered alarm stays meaningful</td></tr>
+</table>
+<p><b>Alarm codes (Protocol Rev.1 &sect;3.2):</b> DERAIL, HOT_BEARING, FLAT_WHEEL, DOOR_UNAUTH,
+HANDBRAKE_MOVING, OVERLOAD, TILT, TANK_OVERTEMP, IMPACT, SENSOR_FAULT, TAMPER, LOW_BATTERY,
+NODE_LOW_BATTERY.</p>
+<p class="small">FLAT_WHEEL is only raised above 15 km/h (&sect;7.9). NODE_LOW_BATTERY is advisory
+(<code>sev:warn</code>) and rides the next heartbeat rather than waking the unit. TAMPER covers
+gateway or sensor removal/tampering, with the affected device in <code>node</code>.</p>
+
+<h3>6.4 Event (up/event)</h3>
+<pre>{"mt":"event", ... ,"d":{"code":"TRAIN_START","from":"stopped","to":"running",
+ "node":null,"trip":"trip-4471","info":{}}}</pre>
+<p><b>Event codes:</b> TRAIN_START, TRAIN_STOP, DOOR_OPEN, DOOR_CLOSE, HANDBRAKE_APPLIED,
+HANDBRAKE_RELEASED, LOAD_CHANGE, BAND_CHANGE, CHARGE_START, CHARGE_STOP, SRC_SWITCH,
+GEOFENCE_ENTER, GEOFENCE_EXIT, CONN_RESTORED, BOOT.</p>
+<p class="small">Events are edge-triggered in <code>gwalarm.c</code>, so a condition that stays true
+does not repeat every heartbeat. GEOFENCE_* is implemented but <b>inactive</b>
+(<code>GEOFENCE_RADIUS_M = 0</code>) - the protocol defines no provisioning command for a fence.</p>
+
+<h2>7. Worked example: change a bearing threshold end to end</h2>
+<ol>
+<li><b>Watch.</b> <code>mosquitto_sub -h mqtt.macnman.com -v -t '&hellip;/up/#'</code></li>
+<li><b>Find the node id.</b> Send <code>get_status</code>; read <code>sens[]</code> in the heartbeat
+that follows. <code>NODE-BRG-03</code> means type bearing, id 3.</li>
+<li><b>Send.</b>
+<pre>mosquitto_pub -h mqtt.macnman.com -q 1 \
+  -t 'smartwagon/v1/31054312345/GW-31054312345/dn/cmd' \
+  -m '{"cmd":"set_threshold","cid":"brg3-a","node":3,"value":800,"hyst":50}'</pre></li>
+<li><b>Wait for the resp</b> with <code>"cid":"brg3-a"</code>. Up to 10 min moving, 12 h parked.
+Expect <code>{"applied":false,"state":"queued"}</code>.</li>
+<li><b>Wait ~10 more minutes</b> for the node's config window - no message is emitted when the BLE
+write lands.</li>
+<li><b>Confirm.</b> Send <code>pull_data</code> and check the node's behaviour against the new
+trip point. A bearing at 81 &deg;C should now alarm; below 75 &deg;C it should clear.</li>
+</ol>
+<div class="ok"><b>If nothing arrives at all:</b> check in this order - (1) is the gateway online
+(any uplink at all in the last 12 h?); (2) did you publish with <code>-q 1</code>; (3) is the topic
+exactly right including the <code>GW-</code> prefix; (4) is <code>cid</code> unique so you are not
+matching an old reply.</div>
+
+<h2>8. Known gaps</h2>
+<table>
+<tr><th>Gap</th><th>Effect</th></tr>
+<tr><td>Omitted <code>hyst</code> is sent as 0</td><td>Silently deletes the node's deadband. Always send it explicitly.</td></tr>
+<tr><td>Queued node thresholds live in gateway RAM only</td><td>A gateway reset before delivery loses the command, after you were told "queued". Re-send if the gateway rebooted.</td></tr>
+<tr><td>No node-level acknowledgement</td><td>The only confirmation a node accepted a threshold is its subsequent behaviour in <code>sens[]</code>.</td></tr>
+<tr><td>MQTT is plaintext on port 1883</td><td>No TLS. Commands are authenticated only by broker access. The BLE hop to the node IS authenticated (AES-CCM, per-wagon key).</td></tr>
+<tr><td>Nothing has run on hardware</td><td>Every message shape here is from source, not from a captured trace.</td></tr>
+</table>
+<p class="small">Ref: RDSO WD-35-MISC-2024 &middot; SmartWagon Telemetry Protocol Rev.1 (pv=1).
+Generated from the firmware sources by DOCS/gen_mqtt_pdf.py - regenerate after changing
+main.c handle_command() or telemetry.c.</p>
+</body></html>

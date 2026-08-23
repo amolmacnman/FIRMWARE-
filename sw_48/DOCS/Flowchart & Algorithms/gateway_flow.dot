@@ -1,0 +1,47 @@
+digraph G {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box style="rounded,filled" fillcolor="#eef4fb" color="#4c78b5"
+        fontname="Helvetica" fontsize=11 margin="0.14,0.09"];
+  edge [color="#5b7188" fontname="Helvetica" fontsize=9];
+  { node [shape=diamond fillcolor="#fdf0d5" color="#c79a2e"] evk;lightq;dbq; }
+
+  boot[label="Power on"];
+  init[label="power_init(): BMA400 rail ON (never cut),\nNOR+FRAM rail ON -> flash in DEEP-POWER-DOWN,\nGNSS + SHT40 + modem rails gated OFF.\nInit: clocks, FRAM, NOR archive, I2C (SHT40+BMA400),\nmotion_init(), BMA400 INT wake (P1.16),\nwdt_init() (WDT31), BLE observer (group filter),\nGNSS thread, EC200"];
+  seed[label="Seed debounce: motion_sample(bma400_is_moving())\nif active -> start 30 s motion-poll timer"];
+  first[label="First cycle: acquire_fix -> link_up ->\nBOOT event + heartbeat + node-health ->\nflush backlog -> drain cmds -> link_down"];
+  setc0[label="arm_schedule(): cadence from DEBOUNCED state\n(10 min moving / 12 h stopped)"];
+  idle[label="SYSTEM ON IDLE  (CPU asleep; BLE scanner + BMA_INT armed)\nbackground: BLE observer caches node adverts"];
+
+  evk[label="which wake event?"];
+
+  m_poll[label="EV_MPOLL: motion_sample(bma400_is_moving())\nno radios - I2C burst on always-on BMA400.\nif !motion_active(): stop poll timer"];
+  m_imp[label="EV_IMPACT (BMA_INT): impact_g = read |a|;\nmotion_sample(true); (re)start poll timer"];
+  lightq[label="sub-threshold only?\n(no shock, no confirmed flip)"];
+
+  dbq[label="did debounce CONFIRM a\nstart/stop this poll?"];
+
+  acq[label="REPORT PATH: acquire_fix() GNSS rail ON warm fix\n(V_BCKP kept) -> link_up() modem rail ON,\nMQTT connect (persistent session, RE-INIT each wake)"];
+
+  a_sched[label="EV_SCHED (RTC):\nble_sensors_refresh() active scan -> read node cache (miss=1) ->\nread SHT40 + BMA400 + power -> speed>15? include vibration ->\ngwalarm_scan() edge detectors -> publish HEARTBEAT ->\nnode-health -> SENSOR_FAULT if down -> re-sample motion"];
+  a_imp[label="EV_IMPACT (shock >= threshold):\ngwalarm_impact() -> ALARM IMPACT / DERAIL"];
+  a_nal[label="EV_NALARM: publish ALARM\n(mapped: HOT_BEARING / DOOR_UNAUTH / ...)"];
+  a_mot[label="EV_MOTION (CONFIRMED): publish EVENT\nTRAIN_START / TRAIN_STOP (trip id)"];
+
+  tail1[label="if online: flush backlog (original seq/ts) ->\ndrain dn/cmd (set_*, ota_start/status, reboot) -> resp\nif offline: storage_append() to the 15 MB NOR archive\n(alarms/events are CRITICAL - never evicted by a heartbeat)"];
+  tail2[label="link_down(): AT+QPOWD, modem rail OFF;\nrelease_fix(): GNSS rail OFF; arm_schedule()"];
+
+  boot->init->seed->first->setc0->idle;
+  idle->evk[label="wake"];
+  evk->m_poll[label="EV_MPOLL"];
+  evk->m_imp[label="EV_IMPACT"];
+  evk->acq[label="EV_SCHED / EV_NALARM /\nEV_MOTION"];
+  m_poll->dbq; m_imp->lightq;
+  lightq->idle[label="yes: back to\nidle, no radios"];
+  lightq->acq[label="no (real shock)"];
+  dbq->acq[label="yes -> EV_MOTION"];
+  dbq->idle[label="no: back to idle"];
+  acq->a_sched[label="EV_SCHED"]; acq->a_imp[label="EV_IMPACT"];
+  acq->a_nal[label="EV_NALARM"]; acq->a_mot[label="EV_MOTION"];
+  a_sched->tail1; a_imp->tail1; a_nal->tail1; a_mot->tail1;
+  tail1->tail2->idle;
+}

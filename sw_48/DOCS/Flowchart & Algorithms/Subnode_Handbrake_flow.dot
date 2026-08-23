@@ -1,0 +1,35 @@
+digraph G {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box style="rounded,filled" fillcolor="#eef4fb" color="#4c78b5"
+        fontname="Helvetica" fontsize=11 margin="0.14,0.09"];
+  edge [color="#5b7188" fontname="Helvetica" fontsize=9];
+  { node [shape=diamond fillcolor="#fdf0d5" color="#c79a2e"] evalq;cfgq; }
+
+  boot[label="Power on"];
+  init[label="Init sensor; load thresholds from NVS;\nderive wgn_group + per-wagon key from WAGON_NUMBER;\nbatt_init() - coulomb gauge, detects a new cell"];
+  sleep[label="SLEEP (this node's OWN RTC timer)\nnormal ~30 s   /   alarm ~1 s\nbatt_account_idle()"];
+  meas[label="Read handbrake state\n(engaged / released)\nbatt_account_meas()"];
+  evalq[label="state changed?"];
+  norm[label="flags.ALARM=0\nbroadcast at NORMAL cadence (~30 s)"];
+  alrm[label="flags.ALARM=1\nbroadcast at FAST cadence (~1 s, hold)"];
+  pack[label="Build reading (flags,batt,value,value2)\nSEAL: AES-CCM encrypt + 4B MIC\n(ctr nonce, per-wagon key)"];
+  tx[label="BLE non-connectable advertise\n(encrypted sw_adv_enc, 21 B)\nbatt_account_tx()"];
+  cfgq[label="Config window due?\n(every 20 cycles, not in alarm)"];
+  cfg[label="Open CONNECTABLE config window (4 s)\ngateway may write ONE authenticated\n20-byte threshold frame\nbatt_account_cfgwin()"];
+
+  cad[shape=note fillcolor="#fff8e1" color="#c79a2e"
+      label="CADENCE = this node's OWN timer (~30 s / ~1 s).\nThe gateway's 10 min / 12 h is SEPARATE -\nthat is the GATEWAY's MQTT report clock."];
+  rel[shape=note fillcolor="#eef4fb" color="#4c78b5"
+      label="This node BROADCASTS - it is never polled.\nThe gateway scans 100 ms every 5 s (2%),\ncaches the latest advert, and forwards the cache\non its own 10 min / 12 h wake. No request/response.\nThe ~1 s alarm rate guarantees capture within ~5 s."];
+  sec[shape=note fillcolor="#fdecea" color="#c0392b"
+      label="NO FIRMWARE UPDATE PATH.\nNo SMP, no MCUmgr, no phone update.\nThe window accepts thresholds ONLY, and only if the\nframe decrypts under the per-wagon key, is addressed\nto THIS node, and beats the stored downlink counter."];
+
+  boot->init->sleep->meas->evalq;
+  evalq->alrm[label="breach"]; evalq->norm[label="normal\n(hysteresis)"];
+  norm->pack; alrm->pack; pack->tx->cfgq;
+  cfgq->cfg[label="yes"]; cfgq->sleep[label="no"];
+  cfg->sleep;
+  cad->sleep[style=dashed dir=none color="#c79a2e"];
+  rel->tx[style=dashed dir=none color="#4c78b5"];
+  sec->cfg[style=dashed dir=none color="#c0392b"];
+}
