@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/CMakeFiles/mcuboot"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/CMakeFiles/mcuboot.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/CMakeFiles/mcuboot-complete.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-build.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-configure.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-download.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-install.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-mkdir.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-patch.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"mcuboot"
+		],
+		"name" : "mcuboot"
+	}
+}

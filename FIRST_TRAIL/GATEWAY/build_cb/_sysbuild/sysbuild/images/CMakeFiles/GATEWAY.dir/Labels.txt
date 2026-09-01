@@ -1,0 +1,13 @@
+# Target labels
+ GATEWAY
+# Source files and their labels
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/CMakeFiles/GATEWAY
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/CMakeFiles/GATEWAY.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/CMakeFiles/GATEWAY-complete.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-build.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-configure.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-download.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-install.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-mkdir.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-patch.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-update.rule

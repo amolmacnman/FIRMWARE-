@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/CMakeFiles/GATEWAY"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/CMakeFiles/GATEWAY.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/CMakeFiles/GATEWAY-complete.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-build.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-configure.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-download.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-install.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-mkdir.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-patch.rule"
+		},
+		{
+			"file" : "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/GATEWAY-prefix/src/GATEWAY-stamp/GATEWAY-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"GATEWAY"
+		],
+		"name" : "GATEWAY"
+	}
+}

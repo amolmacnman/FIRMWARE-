@@ -1,0 +1,13 @@
+# Target labels
+ mcuboot
+# Source files and their labels
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/CMakeFiles/mcuboot
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/CMakeFiles/mcuboot.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/CMakeFiles/mcuboot-complete.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-build.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-configure.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-download.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-install.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-mkdir.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-patch.rule
+D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/sysbuild/images/bootloader/mcuboot-prefix/src/mcuboot-stamp/mcuboot-update.rule
