@@ -1,6 +1,0 @@
-{
-  "script": "misra.py",
-  "args": [
-    "--rule-texts=compliance/misra-rule-texts.txt"
-  ]
-}
