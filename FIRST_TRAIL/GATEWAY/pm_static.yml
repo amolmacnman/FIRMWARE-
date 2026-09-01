@@ -1,0 +1,67 @@
+# Static Partition Manager layout for the Smart Wagon gateway.
+#
+# Internal RRAM (flash_primary): MCUboot dual-slot for the nRF54L15. 'app' is
+# left DYNAMIC so PM places it in the single remaining gap inside mcuboot_primary.
+# External NOR (w25q128): store-and-forward 'archive' + separate 'ota_stage'.
+# Adjust the external sizes to your actual NOR part.
+
+mcuboot:
+  address: 0x0
+  size: 0xc000
+  region: flash_primary
+
+mcuboot_pad:
+  address: 0xc000
+  size: 0x800
+  region: flash_primary
+
+mcuboot_primary:
+  address: 0xc000
+  size: 0xac000
+  orig_span: &primary_span
+  - mcuboot_pad
+  - app
+  span: *primary_span
+  region: flash_primary
+
+mcuboot_secondary:
+  address: 0xb8000
+  size: 0xad000          # extends to end of RRAM (0x165000) - no trailing gap
+  region: flash_primary
+
+# ---- external NOR (W25Q128, 128 Mbit = 16 MB) ----------------------------
+#   0x000000  1.0 MB  nor_reserved       (head kept clear)
+#   0x100000 14.5 MB  archive_partition  store-and-forward
+#   0xF80000  0.5 MB  ota_partition      ONE staged sub-node image
+#
+# THESE MUST MATCH app.overlay EXACTLY. They previously did not: PM said the
+# archive was 14 MB with a 1 MB OTA slot at 0xF00000, while the devicetree said
+# the archive ran 15 MB to the end of the chip - straight THROUGH the OTA area.
+# The store-and-forward ring would have overwritten a staged image.
+#
+# 0.5 MB is sized on the real signed sub-node image (193,712 B). The gateway
+# only ever stages ONE at a time: NODE_ID is compile-time, so every node has a
+# DIFFERENT image and they must be delivered sequentially anyway.
+#
+# Archive cost of the OTA slot is small: records span 1 KB slots and a heartbeat
+# is ~1.7 KB = 2 slots, so 14.5 MB holds ~7400 heartbeats = ~51 days at the
+# 10-minute moving cadence - comfortably past the 30-day requirement.
+# (PM requires external partitions packed from address 0, so the reserved head
+#  is an explicit partition rather than an implicit gap.)
+nor_reserved:
+  address: 0x0
+  size: 0x100000
+  device: nor
+  region: external_flash
+
+archive_partition:
+  address: 0x100000
+  size: 0xe80000          # 14.5 MB
+  device: nor
+  region: external_flash
+
+ota_partition:
+  address: 0xf80000      # 0.5 MB - one staged sub-node image
+  size: 0x80000
+  device: nor
+  region: external_flash
