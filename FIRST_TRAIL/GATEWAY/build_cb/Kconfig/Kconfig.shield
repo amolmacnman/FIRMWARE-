@@ -1,0 +1,2 @@
+osource "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/boards/shields/*/Kconfig.shield"
+osource "C:/ncs/v3.4.0/nrf/boards/shields/*/Kconfig.shield"

@@ -1,0 +1,20 @@
+{
+    "format-version": 1,
+    "time": 1788286633,
+    "files": [
+        {
+            "type": "application",
+            "board": "sw_gateway",
+            "soc": "nrf54l15",
+            "load_address": 65536,
+            "image_index": "0",
+            "slot_index_primary": "1",
+            "slot_index_secondary": "2",
+            "version_MCUBOOT": "0.0.0+0",
+            "size": 302588,
+            "file": "GATEWAY.signed.bin",
+            "modtime": 1788286632
+        }
+    ],
+    "name": "GATEWAY"
+}

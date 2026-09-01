@@ -1,0 +1,10 @@
+default: GATEWAY
+build_dir: D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb
+domains:
+  - name: GATEWAY
+    build_dir: D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/GATEWAY
+  - name: mcuboot
+    build_dir: D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/mcuboot
+flash_order:
+  - mcuboot
+  - GATEWAY

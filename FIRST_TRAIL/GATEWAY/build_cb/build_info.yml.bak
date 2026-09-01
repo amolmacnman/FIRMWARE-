@@ -1,0 +1,28 @@
+cmake:
+  application:
+    source-dir: 'C:/ncs/v3.4.0/zephyr/share/sysbuild'
+  board:
+    name: 'sw_gateway'
+    path:
+     - 'D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/boards/macnman/sw_gateway'
+    qualifiers: 'nrf54l15/cpuapp'
+    revision: ''
+  images:
+   - name: 'GATEWAY'
+     source-dir: 'D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY'
+     type: 'MAIN'
+   - name: 'mcuboot'
+     source-dir: 'C:/ncs/v3.4.0/bootloader/mcuboot/boot/zephyr'
+     type: 'BOOTLOADER'
+  kconfig:
+    files:
+     - 'D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb/_sysbuild/empty.conf'
+     - 'd:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/sysbuild.conf'
+    user-files:
+     - 'd:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/sysbuild.conf'
+  sysbuild: 'true'
+version: '0.1.0'
+west:
+  command: 'C:\ncs\toolchains\dcbdc366a1\opt\bin\Scripts\west build --build-dir d:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY/build_cb d:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/GATEWAY --pristine --board sw_gateway/nrf54l15/cpuapp -- -DDEBUG_THREAD_INFO=Off -DGATEWAY_DEBUG_THREAD_INFO=Off -Dmcuboot_DEBUG_THREAD_INFO=Off -DBOARD_ROOT=d:/z_controller_data/7.nrf54l15/first_trial'
+  topdir: 'c:\ncs\v3.4.0'
+  version: '1.5.0'
