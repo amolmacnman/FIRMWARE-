@@ -1,0 +1,5 @@
+# Smart Wagon Gateway board (nRF54L15, QFN52 custom board)
+# SPDX-License-Identifier: Apache-2.0
+
+config BOARD_SW_GATEWAY
+	select SOC_NRF54L15_CPUAPP if BOARD_SW_GATEWAY_NRF54L15_CPUAPP

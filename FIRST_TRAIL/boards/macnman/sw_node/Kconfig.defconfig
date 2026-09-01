@@ -1,0 +1,11 @@
+# Smart Wagon sub-node - board-driven Kconfig defaults.
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_SW_NODE
+
+# MPU-backed stack guard: on a node that must run unattended for years, a stack
+# overflow should fault deterministically rather than corrupt a neighbour.
+config HW_STACK_PROTECTION
+	default ARCH_HAS_STACK_PROTECTION
+
+endif # BOARD_SW_NODE

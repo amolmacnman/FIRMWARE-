@@ -1,0 +1,19 @@
+identifier: sw_gateway/nrf54l15/cpuapp
+name: Smart Wagon Gateway (nRF54L15 QFN52)
+type: mcu
+arch: arm
+vendor: macnman
+toolchain:
+  - zephyr
+  - gnuarmemb
+sysbuild: true
+ram: 188
+flash: 1428
+supported:
+  - gpio
+  - i2c
+  - spi
+  - uart
+  - watchdog
+  - eeprom
+  - flash

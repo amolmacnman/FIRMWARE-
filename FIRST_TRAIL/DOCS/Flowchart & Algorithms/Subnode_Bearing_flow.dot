@@ -1,0 +1,38 @@
+digraph G {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box style="rounded,filled" fillcolor="#eef4fb" color="#4c78b5"
+        fontname="Helvetica" fontsize=11 margin="0.14,0.09"];
+  edge [color="#5b7188" fontname="Helvetica" fontsize=9];
+  { node [shape=diamond fillcolor="#fdf0d5" color="#c79a2e"] evalq;cfgq; }
+
+  boot[label="Power on"];
+  init[label="Init sensor; load thresholds from NVS;\nderive wgn_group + per-wagon key from WAGON_NUMBER;\nbatt_init() - coulomb gauge, detects a new cell"];
+  sleep[label="SLEEP (this node's OWN RTC timer)\nnormal ~30 s   /   alarm ~1 s\nbatt_account_idle()"];
+  meas[label="Measure bearing temp\n+ vibration (FFT)\nbatt_account_meas()"];
+  evalq[label="temp &ge; sn_threshold()?\n(this node does NOT decide flat-wheel)"];
+  norm[label="flags.ALARM=0\nbroadcast at NORMAL cadence (~30 s)"];
+  alrm[label="flags.ALARM=1\nbroadcast at FAST cadence (~1 s, hold)"];
+  pack[label="Build reading (flags,batt,value,value2)\nSEAL: AES-CCM encrypt + 4B MIC\n(ctr nonce, per-wagon key)"];
+  tx[label="BLE non-connectable advertise\n(encrypted sw_adv_enc, 21 B)\nbatt_account_tx()"];
+  cfgq[label="Config window due?\n(WALL-CLOCK; NOT suppressed in alarm)\nperiod = cfgwin_period_ms()"];
+  cfg[label="Open CONNECTABLE config window (4 s)\ngateway may write ONE authenticated 20-byte frame:\nthreshold / impact / vib-hint / fast-window\nbatt_account_cfgwin()"];
+
+  cad[shape=note fillcolor="#fff8e1" color="#c79a2e"
+      label="CADENCE = this node's OWN timer (~30 s / ~1 s).\nThe gateway's 10 min / 12 h is SEPARATE -\nthat is the GATEWAY's MQTT report clock."];
+  rel[shape=note fillcolor="#eef4fb" color="#4c78b5"
+      label="This node BROADCASTS - it is never polled.\nThe gateway scans 100 ms every 5 s (2%),\ncaches the latest advert, and forwards the cache\non its own 10 min / 12 h wake. No request/response.\nThe ~1 s alarm rate guarantees capture within ~5 s."];
+  sec[shape=note fillcolor="#fdecea" color="#c0392b"
+      label="A command is accepted ONLY if the frame decrypts under\nthe per-wagon key, is addressed to THIS node, and beats\nthe stored downlink counter. A command naming a sensor\nthis node type does not have is REFUSED, not stored.\nNo SMP / MCUmgr transport is advertised: any future\nsub-node DFU goes over this same sealed channel."];
+  win[shape=note fillcolor="#fff8e1" color="#c79a2e"
+      label="FAST WINDOW (SW_DN_FASTWIN): the gateway can ask this\nnode to open its window every ~5 s instead of ~600 s\nfor a bounded time, then it REVERTS ON ITS OWN deadline.\n~6.4 mA while active, ~1.1 mAh for 10 min. Never\npersisted - a reset returns the node to normal duty."];
+
+  boot->init->sleep->meas->evalq;
+  evalq->alrm[label="breach"]; evalq->norm[label="normal\n(hysteresis)"];
+  norm->pack; alrm->pack; pack->tx->cfgq;
+  cfgq->cfg[label="yes"]; cfgq->sleep[label="no"];
+  cfg->sleep;
+  cad->sleep[style=dashed dir=none color="#c79a2e"];
+  rel->tx[style=dashed dir=none color="#4c78b5"];
+  sec->cfg[style=dashed dir=none color="#c0392b"];
+  win->cfgq[style=dashed dir=none color="#c79a2e"];
+}

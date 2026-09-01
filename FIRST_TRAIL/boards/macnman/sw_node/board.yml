@@ -1,0 +1,6 @@
+board:
+  name: sw_node
+  full_name: Smart Wagon Sensor Sub-node (nRF54L15 QFN52)
+  vendor: macnman
+  socs:
+    - name: nrf54l15

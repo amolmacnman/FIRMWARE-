@@ -1,0 +1,214 @@
+/*
+ * Smart Wagon Gateway - nRF54L15 (QFN52) custom board.
+ *
+ * This board is NOT the nRF54L15 DK. Building against the DK target used to
+ * pull in board files that actively fight this hardware:
+ *
+ *   - mx25r6435f@0 sat on chip-select 0 (the same CS as the W25Q128) and
+ *     carried reset-gpios = <&gpio2 0>. On this board P2.00 is SW_AXI, the
+ *     BMA400 power rail that RDSO s7.3 requires to stay up - so every boot
+ *     pulsed the accelerometer rail via a driver for a flash chip that is not
+ *     fitted.
+ *   - led0..3 and button0..3 claimed P2.09, P1.10, P2.07, P1.14, P1.13, P1.09,
+ *     P1.08 and P0.04 - here those are the level-shifter supply, charger CE,
+ *     FRAM_WP, modem PWRKEY, modem RESET, GNSS_PWR_EN, CHG_QON and the memory
+ *     rail. Harmless only for as long as nothing enables CONFIG_INPUT or
+ *     CONFIG_LED.
+ *   - mcuboot-button0 aliased the modem RESET line, so enabling serial
+ *     recovery would have made MCUboot sample the EC200U to decide whether to
+ *     boot the application.
+ *
+ * Everything below is checked against the netlist of
+ * DOCS/Schematic/1.Main_Gateway_nrf54l15.PDF.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <nordic/nrf54l15_cpuapp.dtsi>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/regulator/nrf5x.h>
+#include "sw_gateway-pinctrl.dtsi"
+
+/ {
+	compatible = "macnman,sw-gateway-nrf54l15-cpuapp";
+	model = "Smart Wagon Gateway (nRF54L15 QFN52)";
+
+	chosen {
+		zephyr,console = &uart20;
+		zephyr,shell-uart = &uart20;
+		zephyr,flash-controller = &rram_controller;
+		zephyr,flash = &cpuapp_rram;
+		zephyr,code-partition = &slot0_partition;
+		zephyr,sram = &cpuapp_sram;
+	};
+
+	aliases {
+		watchdog0 = &wdt31;
+		/* Point at the CHILD key (it carries the gpios property), not the
+		 * gpio-keys parent, so GPIO_DT_SPEC_GET(DT_ALIAS(bma_int), gpios)
+		 * resolves. */
+		bma-int = &bma_int;
+	};
+
+	/*
+	 * BMA400 INT1, net BMA_INT -> P1.16. Impact/derailment wake source; it
+	 * wakes the CPU out of System ON idle. Expressed as gpio-keys purely to
+	 * get a gpios phandle the application can bind to.
+	 */
+	bma_int_node: bma-int-node {
+		compatible = "gpio-keys";
+
+		bma_int: bma_int {
+			gpios = <&gpio1 16 GPIO_ACTIVE_HIGH>;
+			label = "BMA400 INT1";
+		};
+	};
+};
+
+/*
+ * Release P1.02/P1.03 from the NFC antenna function so uart20 can drive the
+ * D_TX/D_RX debug header. On nRF54L15 this is a UICR property - the
+ * nRF52/nRF53-only CONFIG_NFCT_PINS_AS_GPIOS Kconfig does not exist here.
+ */
+&uicr {
+	nfct-pins-as-gpios;
+};
+
+/* NFC hardware stays off: its pins are GPIOs on this board. */
+&nfct {
+	status = "disabled";
+};
+
+&cpuapp_sram {
+	status = "okay";
+};
+
+/*
+ * Crystal loading. Confirmed from the netlist: each of XL1, XL2, XC1 and XC2
+ * connects to exactly two nodes - the SoC pin and the crystal pin. There are
+ * NO external load capacitors on either crystal, so the SoC's internal
+ * capacitors must supply the whole load.
+ *
+ * TODO(hardware): load-capacitance-femtofarad must equal the CL of the
+ * crystals actually fitted (X2 = 32.768 kHz LFXO, X1 = HFXO). The values below
+ * are the nRF54L15 DK's and are placeholders. A 32.768 kHz crystal specified
+ * for 12.5 pF driven at 17 pF runs slow, which drags every GRTC wake, the BLE
+ * timing and the report cadence with it.
+ */
+&lfxo {
+	load-capacitors = "internal";
+	load-capacitance-femtofarad = <17000>;
+};
+
+&hfxo {
+	load-capacitors = "internal";
+	load-capacitance-femtofarad = <15000>;
+};
+
+/*
+ * DCDC is correct here: L1 (4.7 uH) is fitted between DCC (pin 50) and DECD.
+ * Do not copy this to a board without that inductor.
+ */
+&regulators {
+	status = "okay";
+};
+
+&vregmain {
+	status = "okay";
+	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+&grtc {
+	owned-channels = <0 1 2 3 4 5 6 7 8 9 10 11>;
+	child-owned-channels = <3 4 7 8 9 10 11>;
+	status = "okay";
+};
+
+&gpio0 { status = "okay"; };
+&gpio1 { status = "okay"; };
+&gpio2 { status = "okay"; };
+&gpiote20 { status = "okay"; };
+&gpiote30 { status = "okay"; };
+&radio { status = "okay"; };
+&clock { status = "okay"; };
+&temp { status = "okay"; };
+
+&gpregret1 {
+	status = "okay";
+
+	boot_mode0: boot_mode@0 {
+		compatible = "zephyr,retention";
+		status = "okay";
+		reg = <0x0 0x1>;
+	};
+};
+
+/*
+ * Internal watchdog. This board has NO external watchdog (the sub-nodes have a
+ * TPL5010), so WDT31 is the only hang recovery. It is disabled in the SoC
+ * devicetree, so it must be enabled here or DEVICE_DT_GET(DT_ALIAS(watchdog0))
+ * fails to link. See GATEWAY/src/watchdog.c.
+ */
+&wdt31 {
+	status = "okay";
+};
+
+/* Console on the debug header. */
+&uart20 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart20_default>;
+	pinctrl-1 = <&uart20_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+/* EC200U 4G modem. */
+&uart22 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart22_default>;
+	pinctrl-1 = <&uart22_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+/* LC29H GNSS. */
+&uart30 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart30_default>;
+	pinctrl-1 = <&uart30_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+/* BMA400 + SHT40 + BQ25798. */
+&i2c21 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+	pinctrl-0 = <&i2c21_default>;
+	pinctrl-1 = <&i2c21_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+/*
+ * The external memory bus (W25Q128 NOR + FRAM) is deliberately NOT described
+ * here - it lives in GATEWAY/app.overlay.
+ *
+ * A board .dts is seen by EVERY sysbuild image, MCUboot included. With the NOR
+ * here, MCUboot generated a flash-map entry for the 15 MB "archive" partition
+ * and failed to link, because the bootloader does not build the SPI-NOR
+ * driver. Masking it back out per-image turned out to be worse: naming &nor
+ * (or its path) in a sysbuild mcuboot overlay is a hard parse error on any
+ * board that lacks the node, which broke the DK target used for bench testing.
+ *
+ * Keeping the bus in the application overlay resolves both: the bootloader
+ * never sees the telemetry archive - which is correct, it has no business
+ * touching it - and both board targets build.
+ *
+ * The DK's mx25r6435f is still gone, which was the point: it sat on the same
+ * chip-select as the W25Q128 and drove P2.00 (SW_AXI, the BMA400 rail) as a
+ * reset line.
+ */
+
+#include <vendor/nordic/nrf54l15_cpuapp_partition.dtsi>

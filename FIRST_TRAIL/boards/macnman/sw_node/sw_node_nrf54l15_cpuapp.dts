@@ -1,0 +1,168 @@
+/*
+ * Smart Wagon sensor sub-node - nRF54L15 (QFN52) custom board.
+ *
+ * One board definition for all 19 nodes: they share the same core hardware -
+ * BMA400 + STS4x on a switched rail, a TPL5010 external watchdog, a debug UART
+ * and the battery gauge on the SAADC internal-supply input. Per-node
+ * differences (door reeds on P1.11, the RTD on AIN3) stay in each
+ * application's app.overlay.
+ *
+ * Why this exists rather than building against the nRF54L15 DK target: the DK
+ * board files describe the DK, and two of its nodes land on pins this board
+ * uses for something else.
+ *
+ *   - button3 is P0.04 with a pull-up. On this board P0.04 is BMA_INT, the
+ *     accelerometer interrupt - the tamper/impact wake line that RDSO s7.3
+ *     depends on.
+ *   - button0/1/2 claim P1.13, P1.09 and P1.08, and mcuboot-button0 aliases
+ *     button0, so enabling serial recovery would make MCUboot sample a pin
+ *     this board does not use as a button.
+ *   - spi00 is enabled with an mx25r6435f that is not fitted here at all.
+ *
+ * None of that bites while CONFIG_INPUT and CONFIG_LED are off, which is why
+ * the DK target appeared to work. It is a latent fault, not a safe default.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <nordic/nrf54l15_cpuapp.dtsi>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/regulator/nrf5x.h>
+#include "sw_node-pinctrl.dtsi"
+
+/ {
+	compatible = "macnman,sw-node-nrf54l15-cpuapp";
+	model = "Smart Wagon Sensor Sub-node (nRF54L15 QFN52)";
+
+	chosen {
+		zephyr,console = &uart20;
+		zephyr,shell-uart = &uart20;
+		zephyr,flash-controller = &rram_controller;
+		zephyr,flash = &cpuapp_rram;
+		zephyr,code-partition = &slot0_partition;
+		zephyr,sram = &cpuapp_sram;
+	};
+};
+
+/*
+ * Release P1.02/P1.03 from NFC so uart20 can drive the debug header. On
+ * nRF54L15 this is a UICR property, not the nRF52/nRF53 Kconfig.
+ */
+&uicr {
+	nfct-pins-as-gpios;
+};
+
+&nfct {
+	status = "disabled";
+};
+
+&cpuapp_sram {
+	status = "okay";
+};
+
+/*
+ * Crystal loading. Every sub-node board carries both crystals, and - as on the
+ * gateway - there are no external load capacitors, so the SoC's internal ones
+ * carry the whole load.
+ *
+ * TODO(hardware): load-capacitance-femtofarad must match the CL of the fitted
+ * crystals. The values below are the nRF54L15 DK's and are PLACEHOLDERS. This
+ * matters more here than on the gateway: the node's entire duty cycle is timed
+ * off the 32.768 kHz LFXO, so a loading error scales the advertising cadence,
+ * the config-window period and every batt_account_*() charge estimate with it.
+ */
+&lfxo {
+	load-capacitors = "internal";
+	load-capacitance-femtofarad = <17000>;
+};
+
+&hfxo {
+	load-capacitors = "internal";
+	load-capacitance-femtofarad = <15000>;
+};
+
+/*
+ * Main regulator: LDO mode, deliberately.
+ *
+ * DCDC would cut radio-burst current appreciably - worth real money against a
+ * 247 uA lifetime budget - but it REQUIRES an inductor between DCC and DECD.
+ * The gateway schematic shows one (L1, 4.7 uH); no sub-node schematic has been
+ * supplied, so it cannot be assumed. Enabling DCDC without that inductor
+ * browns the part out.
+ *
+ * TODO(hardware): if the sub-node boards fit the DCC inductor, add
+ *   regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+ * to &vregmain below and re-measure with the PPK2. Until then LDO is the only
+ * safe choice, and the battery model should assume it.
+ */
+&regulators {
+	status = "okay";
+};
+
+&vregmain {
+	status = "okay";
+};
+
+&grtc {
+	owned-channels = <0 1 2 3 4 5 6 7 8 9 10 11>;
+	child-owned-channels = <3 4 7 8 9 10 11>;
+	status = "okay";
+};
+
+&gpio0 { status = "okay"; };
+&gpio1 { status = "okay"; };
+&gpio2 { status = "okay"; };
+&gpiote20 { status = "okay"; };
+&gpiote30 { status = "okay"; };
+&radio { status = "okay"; };
+&clock { status = "okay"; };
+&temp { status = "okay"; };
+
+&gpregret1 {
+	status = "okay";
+
+	boot_mode0: boot_mode@0 {
+		compatible = "zephyr,retention";
+		status = "okay";
+		reg = <0x0 0x1>;
+	};
+};
+
+/* Debug console. */
+&uart20 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart20_default>;
+	pinctrl-1 = <&uart20_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+/* BMA400 + STS4x, on the rail gated by SW_AXI (P1.06). */
+&i2c21 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+	pinctrl-0 = <&i2c21_default>;
+	pinctrl-1 = <&i2c21_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+/*
+ * SAADC. Channels are declared per application, because they differ: every
+ * node uses the internal-supply input for the battery gauge, and the tank
+ * nodes add AIN3 (P1.07) for the RTD bridge.
+ */
+&adc {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+};
+
+/*
+ * No external memory bus on a sub-node: no NOR, no FRAM, and spi00 stays
+ * disabled. Thresholds, the nonce ceiling and the coulomb-gauge accumulator
+ * all live in internal NVS via the settings subsystem.
+ */
+
+#include <vendor/nordic/nrf54l15_cpuapp_partition.dtsi>

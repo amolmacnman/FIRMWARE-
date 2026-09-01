@@ -1,0 +1,16 @@
+identifier: sw_node/nrf54l15/cpuapp
+name: Smart Wagon Sensor Sub-node (nRF54L15 QFN52)
+type: mcu
+arch: arm
+vendor: macnman
+toolchain:
+  - zephyr
+  - gnuarmemb
+sysbuild: true
+ram: 188
+flash: 1428
+supported:
+  - gpio
+  - i2c
+  - adc
+  - uart

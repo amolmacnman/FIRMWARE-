@@ -1,0 +1,23 @@
+# Smart Wagon Gateway - board-driven Kconfig defaults.
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_SW_GATEWAY
+
+# MPU-backed stack guard. Cheap, and on a device that must survive years
+# unattended a stack overflow should fault deterministically rather than
+# quietly corrupt the next thread's memory.
+config HW_STACK_PROTECTION
+	default ARCH_HAS_STACK_PROTECTION
+
+if SPI_NOR
+
+# The W25Q128 erases in 4 KB sectors, and GATEWAY/src/storage.c relies on
+# exactly that: it erases one 4 KB sector and then writes its four 1 KB record
+# slots individually. The Zephyr default for this symbol is 65536, which would
+# make the flash-map layout disagree with the erase size the archive uses.
+config SPI_NOR_FLASH_LAYOUT_PAGE_SIZE
+	default 4096
+
+endif # SPI_NOR
+
+endif # BOARD_SW_GATEWAY

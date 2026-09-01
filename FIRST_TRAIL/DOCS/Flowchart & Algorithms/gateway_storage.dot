@@ -1,0 +1,22 @@
+digraph G {
+  rankdir=TB; bgcolor="transparent";
+  node [shape=box style="rounded,filled" fillcolor="#eef4fb" color="#4c78b5"
+        fontname="Helvetica" fontsize=11 margin="0.14,0.09"];
+  edge [color="#5b7188" fontname="Helvetica" fontsize=9];
+  { node [shape=diamond fillcolor="#fdf0d5" color="#c79a2e"] fitq;critq; }
+
+  a[label="storage_append(rec, len, critical)"];
+  n[label="n = slots_for(len)\n= ceil((len + 4) / 1024)"];
+  fitq[label="head + n > num_slots?"];
+  pad[label="head = 0 (records never wrap)\nif ring empty: tail = 0 too"];
+  critq[label="erasing this sector would destroy\na CRITICAL record, and the incoming\nrecord is only a heartbeat?"];
+  drop[label="return -ENOSPC\ncaller logs RECORD LOST\n(the alarm is kept)"];
+  er[label="retire overlapped records,\nerase the 4 KB sector"];
+  wr[label="write [magic 0xA5][len:2][kind:1]\nthen the payload, spanning n slots"];
+  up[label="head += n; count++;\nmeta_save() to FRAM"];
+  a->n->fitq;
+  fitq->pad[label="yes"]; fitq->critq[label="no"];
+  pad->critq;
+  critq->drop[label="yes"]; critq->er[label="no"];
+  er->wr->up;
+}
