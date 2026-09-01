@@ -1,0 +1,2 @@
+# Load Zephyr board Kconfig descriptions.
+osource "D:/Z_CONTROLLER_DATA/7.NRF54L15/FIRST_TRIAL/boards/macnman/sw_gateway/Kconfig"
